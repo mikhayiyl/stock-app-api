@@ -24,7 +24,7 @@ if (!config.get("jwtPrivateKey")) {
 }
 
 //db
-const db = process.env.MONGO_DB || config.get("db");
+const db = process.env.MONGODB_URI || config.get("db");
 mongoose
   .connect(db, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log(`connecting to ${db}...`))
