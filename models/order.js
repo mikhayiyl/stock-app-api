@@ -1,10 +1,12 @@
 const mongoose = require("mongoose");
 const Joi = require("joi");
+Joi.objectId = require("joi-objectid")(Joi);
 
 const orderSchema = new mongoose.Schema({
   productId: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
     required: true,
+    ref: "Product",
   },
   itemCode: {
     type: String,
@@ -12,11 +14,10 @@ const orderSchema = new mongoose.Schema({
     maxlength: 50,
     minlength: 5,
   },
-
   quantity: {
     type: Number,
     required: true,
-    min: 0,
+    min: 1,
   },
   orderNumber: {
     type: String,
@@ -32,14 +33,15 @@ const orderSchema = new mongoose.Schema({
 });
 
 function validateOrder(order) {
-  const schema = {
+  const schema = Joi.object({
     productId: Joi.objectId().required(),
     itemCode: Joi.string().min(5).max(50).required(),
     quantity: Joi.number().min(1).required(),
-    orderNumber: Joi.string().required().max(50),
-    date: Joi.string().required().min(5).max(50),
-  };
-  return Joi.validate(order, schema);
+    orderNumber: Joi.string().max(50).required(),
+    date: Joi.string().min(5).max(50).required(),
+  });
+
+  return schema.validate(order);
 }
 
 const Order = mongoose.model("Order", orderSchema);

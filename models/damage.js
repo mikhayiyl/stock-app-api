@@ -1,10 +1,12 @@
 const mongoose = require("mongoose");
 const Joi = require("joi");
+Joi.objectId = require("joi-objectid")(Joi);
 
 const damageSchema = new mongoose.Schema({
   productId: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
     required: true,
+    ref: "Product",
   },
   itemCode: {
     type: String,
@@ -12,7 +14,6 @@ const damageSchema = new mongoose.Schema({
     maxlength: 50,
     minlength: 5,
   },
-
   quantity: {
     type: Number,
     required: true,
@@ -31,14 +32,15 @@ const damageSchema = new mongoose.Schema({
 });
 
 function validateDamage(damage) {
-  const schema = {
+  const schema = Joi.object({
     productId: Joi.objectId().required(),
     itemCode: Joi.string().min(5).max(50).required(),
     quantity: Joi.number().min(0).required(),
     notes: Joi.string().allow("", null).optional(),
-    date: Joi.string().required().min(5).max(50),
-  };
-  return Joi.validate(damage, schema);
+    date: Joi.string().min(5).max(50).required(),
+  });
+
+  return schema.validate(damage);
 }
 
 const Damage = mongoose.model("Damage", damageSchema);

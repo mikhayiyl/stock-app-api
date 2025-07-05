@@ -8,13 +8,11 @@ const receiptSchema = new mongoose.Schema({
     maxlength: 50,
     minlength: 5,
   },
-
   quantity: {
     type: Number,
     required: true,
-    min: 0,
+    min: 1,
   },
-
   date: {
     type: String,
     required: true,
@@ -24,12 +22,13 @@ const receiptSchema = new mongoose.Schema({
 });
 
 function validateReceipt(receipt) {
-  const schema = {
+  const schema = Joi.object({
     itemCode: Joi.string().min(5).max(50).required(),
     quantity: Joi.number().min(1).required(),
-    date: Joi.string().required().min(5).max(50),
-  };
-  return Joi.validate(receipt, schema);
+    date: Joi.string().min(5).max(50).required(),
+  });
+
+  return schema.validate(receipt);
 }
 
 const Receipt = mongoose.model("Receipt", receiptSchema);
