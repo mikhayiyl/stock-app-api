@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const { Damage, validate } = require("../models/damage");
 const objId = require("../middleware/objectId");
 const auth = require("../middleware/auth");
@@ -5,6 +6,7 @@ const validator = require("../middleware/validator");
 const admin = require("../middleware/admin");
 const router = require("express").Router();
 const queryStringCheck = require("../utils/queryStringsCheck");
+const { Product } = require("../models/product");
 
 router.get("/", async (req, res) => {
   const filter = queryStringCheck(req.query);
@@ -22,39 +24,31 @@ router.get("/:id", [objId], async (req, res) => {
   res.send(damage);
 });
 
-router.post("/", auth, [validator(validate)], async (req, res) => {
-  const damage = new Damage(req.body);
+router.post("/", [auth, admin, validator(validate)], async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  await damage.save();
+  try {
+    const { productId, itemCode, quantity, notes, date } = req.body;
 
-  res.send(damage);
-});
+    const damage = new Damage({ productId, itemCode, quantity, notes, date });
+    await damage.save({ session });
 
-router.put("/:id", [auth, objId, validator(validate)], async (req, res) => {
-  const damage = await Damage.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-  });
-  if (!damage)
-    return res
-      .status(404)
-      .send("The damage " + req.params.id + " does not exist");
+    const product = await Product.findById(productId).session(session);
+    if (!product) return res.status(404).send("The product does not exist");
 
-  res.send(damage);
-});
+    product.damaged += quantity;
+    await product.save({ session });
 
-router.patch("/:id", [auth, objId], async (req, res) => {
-  const damage = await Damage.findByIdAndUpdate(
-    req.params.id,
-    { $set: req.body },
-    { new: true, runValidators: true }
-  );
-
-  if (!damage)
-    return res
-      .status(404)
-      .send("The damage " + req.params.id + " does not exist");
-
-  res.send(damage);
+    await session.commitTransaction();
+    res.send(damage);
+  } catch (err) {
+    await session.abortTransaction();
+    console.error("Transaction failed:", err);
+    res.status(500).send("Failed to log damage");
+  } finally {
+    session.endSession();
+  }
 });
 
 router.delete("/:id", [auth, admin, objId], async (req, res) => {
