@@ -6,6 +6,9 @@ const admin = require("../middleware/admin");
 const router = require("express").Router();
 const queryStringCheck = require("../utils/queryStringsCheck");
 
+const mongoose = require("mongoose");
+const { Product } = require("../models/product");
+
 router.get("/", async (req, res) => {
   const filter = queryStringCheck(req.query);
   const orders = await Order.find(filter).sort("-date");
@@ -22,39 +25,42 @@ router.get("/:id", [objId], async (req, res) => {
   res.send(order);
 });
 
-router.post("/", auth, [validator(validate)], async (req, res) => {
-  const order = new Order(req.body);
+router.post("/", [auth, admin, validator(validate)], async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  await order.save();
+  try {
+    const { productId, itemCode, quantity, orderNumber, date } = req.body;
 
-  res.send(order);
-});
+    const product = await Product.findById(productId).session(session);
+    if (!product) return res.status(404).send("Product not found");
 
-router.put("/:id", [auth, objId, validator(validate)], async (req, res) => {
-  const order = await Order.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-  });
-  if (!order)
-    return res
-      .status(404)
-      .send("The order " + req.params.id + " does not exist");
+    if (product.numberInStock < quantity) {
+      return res.status(400).send("Not enough stock available");
+    }
 
-  res.send(order);
-});
+    const order = new Order({
+      productId,
+      itemCode,
+      quantity,
+      orderNumber,
+      date,
+    });
 
-router.patch("/:id", [auth, objId], async (req, res) => {
-  const order = await Order.findByIdAndUpdate(
-    req.params.id,
-    { $set: req.body },
-    { new: true, runValidators: true }
-  );
+    await order.save({ session });
 
-  if (!order)
-    return res
-      .status(404)
-      .send("The order " + req.params.id + " does not exist");
+    product.numberInStock -= quantity;
+    await product.save({ session });
 
-  res.send(order);
+    await session.commitTransaction();
+    res.send(order);
+  } catch (err) {
+    await session.abortTransaction();
+    console.error("Order transaction failed:", err);
+    res.status(400).send(err.message || "Order processing failed");
+  } finally {
+    session.endSession();
+  }
 });
 
 router.delete("/:id", [auth, admin, objId], async (req, res) => {
