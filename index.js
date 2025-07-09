@@ -13,6 +13,7 @@ const auth = require("./routes/auth");
 const damages = require("./routes/damages");
 const orders = require("./routes/orders");
 const receipts = require("./routes/receipts");
+const restocks = require("./routes/restocks");
 const users = require("./routes/users");
 
 const app = express();
@@ -39,6 +40,8 @@ app.use("/api/users", users);
 app.use("/api/auth", auth);
 app.use("/api/orders", orders);
 app.use("/api/receipts", receipts);
+app.use("/api/receipts", receipts);
+app.use("/api/restocks", restocks);
 
 const server = app.listen(port, () =>
   console.log(`Listening on port ${port}...`)

@@ -30,6 +30,14 @@ const damageSchema = new mongoose.Schema({
     maxlength: 50,
     minlength: 5,
   },
+  status: {
+    type: String,
+    enum: ["pending", "replaced", "resold", "disposed"],
+    default: "pending",
+  },
+  resolvedAt: {
+    type: Date,
+  },
 });
 
 function validateDamage(damage) {
@@ -39,6 +47,10 @@ function validateDamage(damage) {
     quantity: Joi.number().min(0).required(),
     notes: Joi.string().allow("", null).optional(),
     date: Joi.string().min(5).max(50).required(),
+    status: Joi.string()
+      .valid("pending", "replaced", "resold", "disposed")
+      .optional(),
+    resolvedAt: Joi.date().optional(),
   });
 
   return schema.validate(damage);
