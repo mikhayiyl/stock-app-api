@@ -31,13 +31,20 @@ router.post("/", [auth, admin, validator(validate)], async (req, res) => {
   try {
     const { productId, itemCode, quantity, notes, date } = req.body;
 
-    const damage = new Damage({ productId, itemCode, quantity, notes, date });
-    await damage.save({ session });
-
     const product = await Product.findById(productId).session(session);
     if (!product) return res.status(404).send("The product does not exist");
 
+    if (product.numberInStock < quantity) {
+      await session.abortTransaction();
+      return res.status(400).send("Not enough stock to report this damage");
+    }
+
+    const damage = new Damage({ productId, itemCode, quantity, notes, date });
+    await damage.save({ session });
+
     product.damaged += quantity;
+    product.numberInStock -= quantity;
+
     await product.save({ session });
 
     await session.commitTransaction();
