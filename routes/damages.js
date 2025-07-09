@@ -58,6 +58,26 @@ router.post("/", [auth, admin, validator(validate)], async (req, res) => {
   }
 });
 
+router.patch("/resolve/:id", [auth, admin, objId], async (req, res) => {
+  const { status } = req.body;
+
+  const validStatuses = ["replaced", "resold", "disposed"];
+  if (!validStatuses.includes(status)) {
+    return res.status(400).send("Invalid status value");
+  }
+
+  const damage = await Damage.findById(req.params.id);
+  if (!damage)
+    return res
+      .status(404)
+      .send(`The damage with ID ${req.params.id} does not exist`);
+
+  damage.status = status;
+  await damage.save();
+
+  res.send(damage);
+});
+
 router.delete("/:id", [auth, admin, objId], async (req, res) => {
   const damage = await Damage.findByIdAndRemove(req.params.id);
 
