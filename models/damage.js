@@ -1,6 +1,29 @@
 const mongoose = require("mongoose");
 const Joi = require("joi");
-Joi.objectId = require("joi-objectid")(Joi);
+
+const resolutionEntrySchema = new mongoose.Schema(
+  {
+    type: {
+      type: String,
+      enum: ["resolved", "disposed"],
+      required: true,
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    notes: {
+      type: String,
+      default: "—",
+    },
+    date: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false }
+);
 
 const damageSchema = new mongoose.Schema({
   productId: {
@@ -30,21 +53,14 @@ const damageSchema = new mongoose.Schema({
     maxlength: 50,
     minlength: 5,
   },
-
   status: {
     type: String,
-    enum: ["pending", "resolved", "disposed"],
+    enum: ["pending", "completed"],
     default: "pending",
   },
-
-  resolvedQuantity: {
-    type: Number,
-    default: 0,
-    min: 0,
-  },
-
-  resolvedAt: {
-    type: Date,
+  resolutionHistory: {
+    type: [resolutionEntrySchema],
+    default: [],
   },
 });
 
