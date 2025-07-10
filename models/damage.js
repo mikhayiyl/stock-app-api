@@ -30,11 +30,19 @@ const damageSchema = new mongoose.Schema({
     maxlength: 50,
     minlength: 5,
   },
+
   status: {
     type: String,
-    enum: ["pending", "replaced", "resold", "disposed"],
+    enum: ["pending", "resolved", "disposed"],
     default: "pending",
   },
+
+  resolvedQuantity: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+
   resolvedAt: {
     type: Date,
   },

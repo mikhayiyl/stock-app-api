@@ -59,23 +59,65 @@ router.post("/", [auth, admin, validator(validate)], async (req, res) => {
 });
 
 router.patch("/resolve/:id", [auth, admin, objId], async (req, res) => {
-  const { status } = req.body;
+  const { status, resolvedQuantity } = req.body;
+  const validStatuses = ["resolved", "disposed"];
 
-  const validStatuses = ["replaced", "resold", "disposed"];
   if (!validStatuses.includes(status)) {
     return res.status(400).send("Invalid status value");
   }
 
-  const damage = await Damage.findById(req.params.id);
-  if (!damage)
-    return res
-      .status(404)
-      .send(`The damage with ID ${req.params.id} does not exist`);
+  if (typeof resolvedQuantity !== "number" || resolvedQuantity <= 0) {
+    return res.status(400).send("Resolved quantity must be a positive number");
+  }
 
-  damage.status = status;
-  await damage.save();
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  res.send(damage);
+  try {
+    const damage = await Damage.findById(req.params.id).session(session);
+    if (!damage) {
+      await session.abortTransaction();
+      return res
+        .status(404)
+        .send(`The damage with ID ${req.params.id} does not exist`);
+    }
+
+    if (resolvedQuantity > damage.quantity) {
+      await session.abortTransaction();
+      return res
+        .status(400)
+        .send("Resolved quantity cannot exceed damaged quantity");
+    }
+
+    damage.status = status;
+    damage.resolvedQuantity = resolvedQuantity;
+    damage.resolvedAt = new Date();
+    await damage.save({ session });
+
+    if (status === "resolved" || status === "disposed") {
+      const product = await Product.findById(damage.productId).session(session);
+      if (!product) {
+        await session.abortTransaction();
+        return res.status(404).send("Associated product does not exist");
+      }
+
+      if (status === "resolved") {
+        product.numberInStock += resolvedQuantity;
+      }
+
+      product.damaged -= resolvedQuantity;
+      await product.save({ session });
+    }
+
+    await session.commitTransaction();
+    res.send(damage);
+  } catch (err) {
+    await session.abortTransaction();
+    console.error("Failed to resolve damage:", err);
+    res.status(500).send("Resolution failed");
+  } finally {
+    session.endSession();
+  }
 });
 
 router.delete("/:id", [auth, admin, objId], async (req, res) => {
