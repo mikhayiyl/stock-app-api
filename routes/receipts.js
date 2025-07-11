@@ -1,20 +1,26 @@
 const { Receipt, validate } = require("../models/receipt");
+const { Delivery } = require("../models/delivery");
+const { Product } = require("../models/product");
 const objId = require("../middleware/objectId");
 const auth = require("../middleware/auth");
-const validator = require("../middleware/validator");
 const admin = require("../middleware/admin");
-const router = require("express").Router();
+const validator = require("../middleware/validator");
 const queryStringCheck = require("../utils/queryStringsCheck");
+const router = require("express").Router();
 
 router.get("/", async (req, res) => {
   const filter = queryStringCheck(req.query);
+
+  if (req.query.expressOnly === "true") {
+    filter.isExpress = true;
+  }
+
   const receipts = await Receipt.find(filter).sort("-date");
   res.send(receipts);
 });
 
 router.get("/:id", [objId], async (req, res) => {
   const receipt = await Receipt.findById(req.params.id);
-
   if (!receipt)
     return res
       .status(404)
@@ -22,49 +28,85 @@ router.get("/:id", [objId], async (req, res) => {
   res.send(receipt);
 });
 
-router.post("/", auth, [validator(validate)], async (req, res) => {
-  const receipt = new Receipt(req.body);
+const mongoose = require("mongoose");
 
-  await receipt.save();
+router.post("/", [auth, admin, validator(validate)], async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  res.send(receipt);
-});
+  try {
+    const {
+      itemCode,
+      quantity,
+      date,
+      name,
+      unit,
+      isExpress,
+      client,
+      deliveryNote,
+    } = req.body;
 
-router.put("/:id", [auth, objId, validator(validate)], async (req, res) => {
-  const receipt = await Receipt.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-  });
-  if (!receipt)
-    return res
-      .status(404)
-      .send("The receipt " + req.params.id + " does not exist");
+    const receipt = new Receipt({
+      itemCode,
+      quantity,
+      date,
+      isExpress: isExpress || false,
+      client: client || null,
+      deliveryNote: deliveryNote || null,
+    });
 
-  res.send(receipt);
-});
+    await receipt.save({ session });
 
-router.patch("/:id", [auth, objId], async (req, res) => {
-  const receipt = await Receipt.findByIdAndUpdate(
-    req.params.id,
-    { $set: req.body },
-    { new: true, runValidators: true }
-  );
+    if (isExpress) {
+      const delivery = new Delivery({
+        itemCode,
+        quantity,
+        date,
+        client,
+        source: "Express",
+        deliveryNote,
+      });
 
-  if (!receipt)
-    return res
-      .status(404)
-      .send("The receipt " + req.params.id + " does not exist");
+      await delivery.save({ session });
+    } else {
+      const product = await Product.findOne({ itemCode }).session(session);
 
-  res.send(receipt);
+      if (product) {
+        product.numberInStock += quantity;
+        product.received = date;
+        await product.save({ session });
+      } else {
+        const newProduct = new Product({
+          itemCode,
+          name,
+          unit,
+          numberInStock: quantity,
+          damaged: 0,
+          received: date,
+        });
+
+        await newProduct.save({ session });
+      }
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.send(receipt);
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Transaction failed:", err);
+    res.status(500).send("Failed to save receipt with linked data.");
+  }
 });
 
 router.delete("/:id", [auth, admin, objId], async (req, res) => {
   const receipt = await Receipt.findByIdAndRemove(req.params.id);
-
   if (!receipt)
     return res
       .status(404)
       .send("The receipt " + req.params.id + " does not exist");
-
   res.send(receipt);
 });
 

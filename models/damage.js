@@ -58,6 +58,7 @@ const damageSchema = new mongoose.Schema({
     enum: ["pending", "completed"],
     default: "pending",
   },
+
   resolutionHistory: {
     type: [resolutionEntrySchema],
     default: [],
@@ -71,9 +72,7 @@ function validateDamage(damage) {
     quantity: Joi.number().min(0).required(),
     notes: Joi.string().allow("", null).optional(),
     date: Joi.string().min(5).max(50).required(),
-    status: Joi.string()
-      .valid("pending", "replaced", "resold", "disposed")
-      .optional(),
+    status: Joi.string().valid("pending", "completed").optional(),
     resolvedAt: Joi.date().optional(),
   });
 

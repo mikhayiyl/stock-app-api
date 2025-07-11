@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const Joi = require("joi");
 
-const receiptSchema = new mongoose.Schema({
+const deliverySchema = new mongoose.Schema({
   itemCode: {
     type: String,
     required: true,
@@ -19,14 +19,15 @@ const receiptSchema = new mongoose.Schema({
     maxlength: 50,
     minlength: 5,
   },
-  isExpress: {
-    type: Boolean,
-    default: false,
-  },
   client: {
     type: String,
     maxlength: 100,
     default: null,
+  },
+  source: {
+    type: String,
+    enum: ["Express", "Normal"],
+    default: "Normal",
   },
   deliveryNote: {
     type: String,
@@ -35,37 +36,19 @@ const receiptSchema = new mongoose.Schema({
   },
 });
 
-function validateReceipt(receipt) {
+function validateDelivery(delivery) {
   const schema = Joi.object({
     itemCode: Joi.string().min(5).max(50).required(),
     quantity: Joi.number().min(1).required(),
     date: Joi.string().min(5).max(50).required(),
-    isExpress: Joi.boolean().optional(),
     client: Joi.string().max(100).optional().allow(null, ""),
+    source: Joi.string().valid("Express", "Normal").optional(),
     deliveryNote: Joi.string().max(200).optional().allow(null, ""),
-
-    //name and unit to make sure they are included in the product
-    name: Joi.string()
-      .min(2)
-      .max(100)
-      .when("isExpress", {
-        is: false,
-        then: Joi.required(),
-        otherwise: Joi.optional().allow("", null),
-      }),
-    unit: Joi.string()
-      .min(1)
-      .max(20)
-      .when("isExpress", {
-        is: false,
-        then: Joi.required(),
-        otherwise: Joi.optional().allow("", null),
-      }),
   });
 
-  return schema.validate(receipt);
+  return schema.validate(delivery);
 }
 
-const Receipt = mongoose.model("Receipt", receiptSchema);
-exports.Receipt = Receipt;
-exports.validate = validateReceipt;
+const Delivery = mongoose.model("Delivery", deliverySchema);
+exports.Delivery = Delivery;
+exports.validate = validateDelivery;
