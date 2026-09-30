@@ -32,7 +32,15 @@ router.post("/", [auth, admin, validator(validate)], async (req, res) => {
     const { productId, itemCode, quantity, notes, date } = req.body;
 
     const product = await Product.findById(productId).session(session);
-    if (!product) return res.status(404).send("The product does not exist");
+    if (!product) {
+      await session.abortTransaction();
+      return res.status(404).send("The product does not exist");
+    }
+
+    if (product.itemCode !== itemCode) {
+      await session.abortTransaction();
+      return res.status(400).send("Item code does not match product");
+    }
 
     if (product.numberInStock < quantity) {
       await session.abortTransaction();
