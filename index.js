@@ -1,3 +1,5 @@
+require("express-async-errors");
+
 const express = require("express");
 const mongoose = require("mongoose");
 const config = require("config");
@@ -15,6 +17,7 @@ const orders = require("./routes/orders");
 const receipts = require("./routes/receipts");
 const restocks = require("./routes/restocks");
 const users = require("./routes/users");
+const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
 const port = process.env.PORT || config.get("port");
@@ -40,10 +43,10 @@ app.use("/api/users", users);
 app.use("/api/auth", auth);
 app.use("/api/orders", orders);
 app.use("/api/receipts", receipts);
-app.use("/api/receipts", receipts);
 app.use("/api/restocks", restocks);
+app.use(errorHandler);
 
 const server = app.listen(port, () =>
-  console.log(`Listening on port ${port}...`)
+  console.log(`Listening on port ${port}...`),
 );
 module.exports = server;

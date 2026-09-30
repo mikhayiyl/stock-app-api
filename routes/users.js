@@ -1,14 +1,15 @@
-const { User, validate } = require("../models/user");
+const { User, validate, validatePatch } = require("../models/user");
 const objId = require("../middleware/objectId");
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
+const ownerOrAdmin = require("../middleware/ownerOrAdmin");
 const router = require("express").Router();
 const _ = require("lodash");
 const bcrypt = require("bcrypt");
 const validator = require("../middleware/validator");
 
-router.get("/", async (req, res) => {
-  const users = await User.find().sort("name");
+router.get("/", [auth, admin], async (req, res) => {
+  const users = await User.find().select("-password").sort("username");
   res.send(users);
 });
 
@@ -38,59 +39,53 @@ router.post("/", validator(validate), async (req, res) => {
     .send(_.pick(user, ["_id", "username", "email"]));
 });
 
-router.put("/:id", auth, validator(validate), async (req, res) => {
-  const user = await User.findByIdAndUpdate(
-    req.params.id,
-    _.pick(req.body, ["username", "email", "password"]),
-    { new: true }
-  );
+router.put(
+  "/:id",
+  [auth, objId, ownerOrAdmin, validator(validate)],
+  async (req, res) => {
+    const user = await User.findById(req.params.id);
 
-  if (!user)
-    return res
-      .status(404)
-      .send("The user " + req.params.id + " does not exist");
+    if (!user)
+      return res
+        .status(404)
+        .send("The user " + req.params.id + " does not exist");
 
-  const salt = await bcrypt.genSalt(10);
-  user.password = await bcrypt.hash(user.password, salt);
-
-  await user.save();
-
-  res.send(_.pick(user, ["_id", "username", "email"]));
-});
-
-router.patch("/:id", auth, async (req, res) => {
-  const allowedUpdates = ["username", "email", "password"];
-  const updates = Object.keys(req.body);
-  const isValidOperation = updates.every((update) =>
-    allowedUpdates.includes(update)
-  );
-
-  if (!isValidOperation)
-    return res.status(400).send("Invalid fields in update.");
-
-  const user = await User.findById(req.params.id);
-  if (!user)
-    return res
-      .status(404)
-      .send("The user " + req.params.id + " does not exist");
-
-  try {
-    for (let key of updates) {
-      if (key === "password") {
-        const salt = await bcrypt.genSalt(10);
-        user[key] = await bcrypt.hash(req.body[key], salt);
-      } else {
-        user[key] = req.body[key];
-      }
-    }
+    user.username = req.body.username;
+    user.email = req.body.email;
+    user.password = await bcrypt.hash(
+      req.body.password,
+      await bcrypt.genSalt(10),
+    );
 
     await user.save();
 
     res.send(_.pick(user, ["_id", "username", "email"]));
-  } catch (err) {
-    res.status(500).send("Internal Server Error");
-  }
-});
+  },
+);
+
+router.patch(
+  "/:id",
+  [auth, objId, ownerOrAdmin, validator(validatePatch)],
+  async (req, res) => {
+    const user = await User.findById(req.params.id);
+    if (!user)
+      return res
+        .status(404)
+        .send("The user " + req.params.id + " does not exist");
+
+    if (req.body.username !== undefined) user.username = req.body.username;
+    if (req.body.email !== undefined) user.email = req.body.email;
+    if (req.body.password !== undefined) {
+      user.password = await bcrypt.hash(
+        req.body.password,
+        await bcrypt.genSalt(10),
+      );
+    }
+    await user.save();
+
+    res.send(_.pick(user, ["_id", "username", "email"]));
+  },
+);
 
 router.delete("/:id", [auth, admin, objId], async (req, res) => {
   const user = await User.findByIdAndRemove(req.params.id);
@@ -98,7 +93,7 @@ router.delete("/:id", [auth, admin, objId], async (req, res) => {
     return res
       .status(404)
       .send("The user " + req.params.id + " does not exist");
-  res.send(user);
+  res.send(_.pick(user, ["_id", "username", "email", "isAdmin"]));
 });
 
 module.exports = router;

@@ -1,5 +1,6 @@
 const Joi = require("joi");
 const mongoose = require("mongoose");
+Joi.objectId = require("joi-objectid")(Joi);
 
 const restockSchema = new mongoose.Schema({
   productId: {
@@ -35,6 +36,5 @@ function validateRestock(restock) {
   return schema.validate(restock);
 }
 
-module.exports.validateRestock = validateRestock;
 const Restock = mongoose.model("Restock", restockSchema);
-module.exports = Restock;
+module.exports = { Restock, validate: validateRestock };

@@ -22,7 +22,7 @@ router.get("/:id", [objId], async (req, res) => {
   res.send(product);
 });
 
-router.post("/", auth, [validator(validate)], async (req, res) => {
+router.post("/", [auth, admin, validator(validate)], async (req, res) => {
   const product = new Product(req.body);
 
   await product.save();
@@ -30,23 +30,27 @@ router.post("/", auth, [validator(validate)], async (req, res) => {
   res.send(product);
 });
 
-router.put("/:id", [auth, objId, validator(validate)], async (req, res) => {
-  const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-  });
-  if (!product)
-    return res
-      .status(404)
-      .send("The product " + req.params.id + " does not exist");
+router.put(
+  "/:id",
+  [auth, admin, objId, validator(validate)],
+  async (req, res) => {
+    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
+    if (!product)
+      return res
+        .status(404)
+        .send("The product " + req.params.id + " does not exist");
 
-  res.send(product);
-});
+    res.send(product);
+  },
+);
 
-router.patch("/:id", [auth, objId], async (req, res) => {
+router.patch("/:id", [auth, admin, objId], async (req, res) => {
   const product = await Product.findByIdAndUpdate(
     req.params.id,
     { $set: req.body },
-    { new: true, runValidators: true }
+    { new: true, runValidators: true },
   );
 
   if (!product)

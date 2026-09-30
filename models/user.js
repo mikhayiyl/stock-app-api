@@ -40,7 +40,7 @@ userSchema.methods.generateAuthToken = function () {
       email: this.email,
       isAdmin: this.isAdmin,
     },
-    config.get("jwtPrivateKey")
+    config.get("jwtPrivateKey"),
   );
 };
 
@@ -57,5 +57,16 @@ function validateUser(user) {
   return schema.validate(user);
 }
 
+function validateUserPatch(user) {
+  const schema = Joi.object({
+    username: Joi.string().min(5).max(50),
+    email: Joi.string().email().max(254),
+    password: Joi.string().min(6).max(72),
+  }).min(1);
+
+  return schema.validate(user);
+}
+
 exports.User = User;
 exports.validate = validateUser;
+exports.validatePatch = validateUserPatch;
