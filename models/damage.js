@@ -40,8 +40,7 @@ const damageSchema = new mongoose.Schema({
   quantity: {
     type: Number,
     required: true,
-    min: 0,
-    default: 0,
+    min: 1,
   },
   notes: {
     type: String,
@@ -69,7 +68,7 @@ function validateDamage(damage) {
   const schema = Joi.object({
     productId: Joi.objectId().required(),
     itemCode: Joi.string().min(5).max(50).required(),
-    quantity: Joi.number().min(0).required(),
+    quantity: Joi.number().min(1).required(),
     notes: Joi.string().allow("", null).optional(),
     date: Joi.string().min(5).max(50).required(),
     status: Joi.string().valid("pending", "completed").optional(),

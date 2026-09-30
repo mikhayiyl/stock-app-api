@@ -140,14 +140,43 @@ router.patch("/resolve/:id", [auth, admin, objId], async (req, res) => {
 });
 
 router.delete("/:id", [auth, admin, objId], async (req, res) => {
-  const damage = await Damage.findByIdAndRemove(req.params.id);
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (!damage)
-    return res
-      .status(404)
-      .send("The damage " + req.params.id + " does not exist");
+  try {
+    const damage = await Damage.findById(req.params.id).session(session);
+    if (!damage) {
+      await session.abortTransaction();
+      return res
+        .status(404)
+        .send("The damage " + req.params.id + " does not exist");
+    }
 
-  res.send(damage);
+    const processedQuantity = damage.resolutionHistory.reduce(
+      (sum, entry) => sum + entry.quantity,
+      0,
+    );
+    const unresolvedQuantity = Math.max(damage.quantity - processedQuantity, 0);
+    const product = await Product.findById(damage.productId).session(session);
+    if (!product) {
+      await session.abortTransaction();
+      return res.status(404).send("Associated product not found");
+    }
+
+    product.numberInStock += unresolvedQuantity;
+    product.damaged = Math.max(product.damaged - unresolvedQuantity, 0);
+    await product.save({ session });
+    await damage.deleteOne({ session });
+
+    await session.commitTransaction();
+    res.send(damage);
+  } catch (err) {
+    await session.abortTransaction();
+    console.error("Damage deletion failed:", err);
+    res.status(500).send("Failed to delete damage report");
+  } finally {
+    session.endSession();
+  }
 });
 
 module.exports = router;
