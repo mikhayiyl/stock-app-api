@@ -1,3 +1,4 @@
+
 require("express-async-errors");
 
 const express = require("express");
@@ -7,9 +8,10 @@ const winston = require("winston");
 const cors = require("cors");
 const morgan = require("morgan");
 const Joi = require("joi");
+
 Joi.objectId = require("joi-objectid")(Joi);
 
-//routes
+// routes
 const products = require("./routes/products");
 const auth = require("./routes/auth");
 const damages = require("./routes/damages");
@@ -17,26 +19,25 @@ const orders = require("./routes/orders");
 const receipts = require("./routes/receipts");
 const restocks = require("./routes/restocks");
 const users = require("./routes/users");
+
 const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
+
 const port = process.env.PORT || config.get("port");
 
+// Check JWT private key
 if (!config.get("jwtPrivateKey")) {
-  winston.error("FATAL ERROR:jwtPrivateKey is not defined");
+  winston.error("FATAL ERROR: jwtPrivateKey is not defined");
   process.exit(1);
 }
 
-//db
-const db = process.env.MONGODB_URI || config.get("db");
-mongoose
-  .connect(db)
-  .then(() => console.log(`connecting to ${db}...`))
-  .catch((error) => console.log("failed to connect to mongodb", error.message));
-
+// Middleware
 app.use(express.json());
 app.use(cors());
 app.use(morgan("tiny"));
+
+// Routes
 app.use("/api/products", products);
 app.use("/api/damages", damages);
 app.use("/api/users", users);
@@ -44,9 +45,25 @@ app.use("/api/auth", auth);
 app.use("/api/orders", orders);
 app.use("/api/receipts", receipts);
 app.use("/api/restocks", restocks);
+
+// Error handler
 app.use(errorHandler);
 
-const server = app.listen(port, () =>
-  console.log(`Listening on port ${port}...`),
-);
-module.exports = server;
+// Database
+const db = process.env.MONGO_DB || config.get("db");
+
+mongoose
+  .connect(db)
+  .then(() => {
+    console.log("MongoDB connected successfully");
+
+    app.listen(port, () => {
+      console.log(`Listening on port ${port}...`);
+    });
+  })
+  .catch((error) => {
+    console.error("Failed to connect to MongoDB:", error.message);
+    process.exit(1);
+  });
+
+module.exports = app;
