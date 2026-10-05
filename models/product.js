@@ -23,6 +23,18 @@ function validateProduct(product) {
   return schema.validate(product);
 }
 
+function validateProductPatch(product) {
+  const schema = Joi.object({
+    name: Joi.string().min(5).max(50),
+    itemCode: Joi.string().min(5).max(50),
+    unit: Joi.string().min(1).max(50),
+    received: Joi.string().min(5).max(50),
+  }).min(1);
+
+  return schema.validate(product);
+}
+
 const Product = mongoose.model("Product", productSchema);
 exports.Product = Product;
 exports.validate = validateProduct;
+exports.validatePatch = validateProductPatch;

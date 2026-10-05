@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { Restock, validate } = require("./restock");
+const { Restock, validate } = require("../../../models/restock");
 
 describe("restock model exports", () => {
   test("exports the model and Joi validator used by the route", () => {

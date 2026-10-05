@@ -7,14 +7,15 @@ const admin = require("../middleware/admin");
 const router = require("express").Router();
 const queryStringCheck = require("../utils/queryStringsCheck");
 const { Product } = require("../models/product");
+const recordStockMovement = require("../utils/recordStockMovement");
 
-router.get("/", async (req, res) => {
+router.get("/", auth, async (req, res) => {
   const filter = queryStringCheck(req.query);
   const restocks = await Restock.find(filter).sort("-date");
   res.send(restocks);
 });
 
-router.get("/:id", [objId], async (req, res) => {
+router.get("/:id", [auth, objId], async (req, res) => {
   const restock = await Restock.findById(req.params.id);
 
   if (!restock)
@@ -50,6 +51,17 @@ router.post("/", [auth, admin, validator(validate)], async (req, res) => {
     });
 
     await restock.save({ session });
+    await recordStockMovement({
+      product,
+      type: "restock",
+      quantity,
+      stockChange: quantity,
+      reason: notes || "Manual restock",
+      referenceType: "restock",
+      referenceId: restock._id,
+      performedBy: req.user._id,
+      session,
+    });
 
     await session.commitTransaction();
     res.send(restock);

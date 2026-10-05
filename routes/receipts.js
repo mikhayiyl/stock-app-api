@@ -6,9 +6,10 @@ const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
 const validator = require("../middleware/validator");
 const queryStringCheck = require("../utils/queryStringsCheck");
+const recordStockMovement = require("../utils/recordStockMovement");
 const router = require("express").Router();
 
-router.get("/", async (req, res) => {
+router.get("/", auth, async (req, res) => {
   const filter = queryStringCheck(req.query);
 
   if (req.query.expressOnly === "true") {
@@ -19,7 +20,7 @@ router.get("/", async (req, res) => {
   res.send(receipts);
 });
 
-router.get("/:id", [objId], async (req, res) => {
+router.get("/:id", [auth, objId], async (req, res) => {
   const receipt = await Receipt.findById(req.params.id);
   if (!receipt)
     return res
@@ -69,14 +70,14 @@ router.post("/", [auth, admin, validator(validate)], async (req, res) => {
 
       await delivery.save({ session });
     } else {
-      const product = await Product.findOne({ itemCode }).session(session);
+      let product = await Product.findOne({ itemCode }).session(session);
 
       if (product) {
         product.numberInStock += quantity;
         product.received = date;
         await product.save({ session });
       } else {
-        const newProduct = new Product({
+        product = new Product({
           itemCode,
           name,
           unit,
@@ -85,8 +86,20 @@ router.post("/", [auth, admin, validator(validate)], async (req, res) => {
           received: date,
         });
 
-        await newProduct.save({ session });
+        await product.save({ session });
       }
+
+      await recordStockMovement({
+        product,
+        type: "receipt",
+        quantity,
+        stockChange: quantity,
+        reason: "Stock received",
+        referenceType: "receipt",
+        referenceId: receipt._id,
+        performedBy: req.user._id,
+        session,
+      });
     }
 
     await session.commitTransaction();
@@ -102,12 +115,74 @@ router.post("/", [auth, admin, validator(validate)], async (req, res) => {
 });
 
 router.delete("/:id", [auth, admin, objId], async (req, res) => {
-  const receipt = await Receipt.findByIdAndRemove(req.params.id);
-  if (!receipt)
-    return res
-      .status(404)
-      .send("The receipt " + req.params.id + " does not exist");
-  res.send(receipt);
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const receipt = await Receipt.findById(req.params.id).session(session);
+    if (!receipt) {
+      await session.abortTransaction();
+      return res
+        .status(404)
+        .send("The receipt " + req.params.id + " does not exist");
+    }
+
+    if (receipt.isExpress) {
+      await Delivery.deleteOne(
+        {
+          itemCode: receipt.itemCode,
+          quantity: receipt.quantity,
+          date: receipt.date,
+          client: receipt.client,
+          deliveryNote: receipt.deliveryNote,
+          source: "Express",
+        },
+        { session },
+      );
+    } else {
+      const product = await Product.findOne({
+        itemCode: receipt.itemCode,
+      }).session(session);
+
+      if (!product) {
+        await session.abortTransaction();
+        return res
+          .status(409)
+          .send("Cannot reverse receipt because its product no longer exists");
+      }
+
+      if (product.numberInStock < receipt.quantity) {
+        await session.abortTransaction();
+        return res
+          .status(409)
+          .send("Cannot delete receipt because some of its stock has been used");
+      }
+
+      product.numberInStock -= receipt.quantity;
+      await product.save({ session });
+      await recordStockMovement({
+        product,
+        type: "receipt_reversal",
+        quantity: receipt.quantity,
+        stockChange: -receipt.quantity,
+        reason: "Receipt deleted",
+        referenceType: "receipt",
+        referenceId: receipt._id,
+        performedBy: req.user._id,
+        session,
+      });
+    }
+
+    await receipt.deleteOne({ session });
+    await session.commitTransaction();
+    res.send(receipt);
+  } catch (err) {
+    await session.abortTransaction();
+    console.error("Receipt deletion transaction failed:", err);
+    res.status(500).send("Failed to delete receipt and reverse its stock");
+  } finally {
+    session.endSession();
+  }
 });
 
 module.exports = router;

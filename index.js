@@ -18,6 +18,7 @@ const damages = require("./routes/damages");
 const orders = require("./routes/orders");
 const receipts = require("./routes/receipts");
 const restocks = require("./routes/restocks");
+const stockMovements = require("./routes/stockMovements");
 const users = require("./routes/users");
 
 const errorHandler = require("./middleware/errorHandler");
@@ -45,6 +46,7 @@ app.use("/api/auth", auth);
 app.use("/api/orders", orders);
 app.use("/api/receipts", receipts);
 app.use("/api/restocks", restocks);
+app.use("/api/stock-movements", stockMovements);
 
 // Error handler
 app.use(errorHandler);

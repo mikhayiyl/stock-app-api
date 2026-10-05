@@ -7,14 +7,15 @@ const admin = require("../middleware/admin");
 const router = require("express").Router();
 const queryStringCheck = require("../utils/queryStringsCheck");
 const { Product } = require("../models/product");
+const recordStockMovement = require("../utils/recordStockMovement");
 
-router.get("/", async (req, res) => {
+router.get("/", auth, async (req, res) => {
   const filter = queryStringCheck(req.query);
   const damages = await Damage.find(filter).sort("-date");
   res.send(damages);
 });
 
-router.get("/:id", [objId], async (req, res) => {
+router.get("/:id", [auth, objId], async (req, res) => {
   const damage = await Damage.findById(req.params.id);
 
   if (!damage)
@@ -54,6 +55,17 @@ router.post("/", [auth, admin, validator(validate)], async (req, res) => {
     product.numberInStock -= quantity;
 
     await product.save({ session });
+    await recordStockMovement({
+      product,
+      type: "damage",
+      quantity,
+      stockChange: -quantity,
+      reason: notes || "Damage reported",
+      referenceType: "damage",
+      referenceId: damage._id,
+      performedBy: req.user._id,
+      session,
+    });
 
     await session.commitTransaction();
     res.send(damage);
@@ -127,6 +139,17 @@ router.patch("/resolve/:id", [auth, admin, objId], async (req, res) => {
     //avoid a negative value
     product.damaged = Math.max(product.damaged - quantity, 0);
     await product.save({ session });
+    await recordStockMovement({
+      product,
+      type: type === "resolved" ? "damage_resolution" : "damage_disposal",
+      quantity,
+      stockChange: type === "resolved" ? quantity : 0,
+      reason: notes || `Damage ${type}`,
+      referenceType: "damage",
+      referenceId: damage._id,
+      performedBy: req.user._id,
+      session,
+    });
 
     await session.commitTransaction();
     res.send(damage);
@@ -166,6 +189,17 @@ router.delete("/:id", [auth, admin, objId], async (req, res) => {
     product.numberInStock += unresolvedQuantity;
     product.damaged = Math.max(product.damaged - unresolvedQuantity, 0);
     await product.save({ session });
+    await recordStockMovement({
+      product,
+      type: "damage_cancellation",
+      quantity: damage.quantity,
+      stockChange: unresolvedQuantity,
+      reason: "Damage report deleted",
+      referenceType: "damage",
+      referenceId: damage._id,
+      performedBy: req.user._id,
+      session,
+    });
     await damage.deleteOne({ session });
 
     await session.commitTransaction();

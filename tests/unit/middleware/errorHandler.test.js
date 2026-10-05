@@ -2,7 +2,7 @@ require("express-async-errors");
 
 const express = require("express");
 const request = require("supertest");
-const errorHandler = require("./errorHandler");
+const errorHandler = require("../../../middleware/errorHandler");
 
 afterEach(() => {
   jest.restoreAllMocks();

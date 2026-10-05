@@ -1,4 +1,4 @@
-const ownerOrAdmin = require("./ownerOrAdmin");
+const ownerOrAdmin = require("../../../middleware/ownerOrAdmin");
 
 describe("ownerOrAdmin", () => {
   const createResponse = () => ({
