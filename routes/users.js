@@ -1,4 +1,9 @@
-const { User, validate, validatePatch } = require("../models/user");
+const {
+  User,
+  validate,
+  validatePatch,
+  validateRole,
+} = require("../models/user");
 const objId = require("../middleware/objectId");
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
@@ -87,12 +92,59 @@ router.patch(
   },
 );
 
+router.patch(
+  "/:id/role",
+  [auth, admin, objId, validator(validateRole)],
+  async (req, res) => {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).send(`The user ${req.params.id} does not exist`);
+    }
+
+    if (
+      String(user._id) === String(req.user._id) &&
+      req.body.isAdmin === false
+    ) {
+      return res
+        .status(409)
+        .send("You cannot remove your own administrator role");
+    }
+
+    if (user.isAdmin && req.body.isAdmin === false) {
+      const adminCount = await User.countDocuments({ isAdmin: true });
+      if (adminCount <= 1) {
+        return res
+          .status(409)
+          .send("The last administrator cannot be demoted");
+      }
+    }
+
+    user.isAdmin = req.body.isAdmin;
+    await user.save();
+
+    res.send(_.pick(user, ["_id", "username", "email", "isAdmin"]));
+  },
+);
+
 router.delete("/:id", [auth, admin, objId], async (req, res) => {
-  const user = await User.findByIdAndRemove(req.params.id);
+  const user = await User.findById(req.params.id);
   if (!user)
     return res
       .status(404)
       .send("The user " + req.params.id + " does not exist");
+
+  if (String(user._id) === String(req.user._id)) {
+    return res.status(409).send("You cannot delete your own account");
+  }
+
+  if (user.isAdmin) {
+    const adminCount = await User.countDocuments({ isAdmin: true });
+    if (adminCount <= 1) {
+      return res.status(409).send("The last administrator cannot be deleted");
+    }
+  }
+
+  await user.deleteOne();
   res.send(_.pick(user, ["_id", "username", "email", "isAdmin"]));
 });
 

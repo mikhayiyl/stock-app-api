@@ -59,10 +59,19 @@ function validateUser(user) {
 
 function validateUserPatch(user) {
   const schema = Joi.object({
-    username: Joi.string().min(5).max(50),
-    email: Joi.string().email().max(254),
-    password: Joi.string().min(6).max(72),
+    username: Joi.string().min(5).max(50).required(),
+    email: Joi.string().email().max(254).required(),
+    password: Joi.string().min(6).max(72).required(),
+    isAdmin: Joi.boolean(),
   }).min(1);
+
+  return schema.validate(user);
+}
+
+function validateUserRole(user) {
+  const schema = Joi.object({
+    isAdmin: Joi.boolean().required(),
+  });
 
   return schema.validate(user);
 }
@@ -70,3 +79,4 @@ function validateUserPatch(user) {
 exports.User = User;
 exports.validate = validateUser;
 exports.validatePatch = validateUserPatch;
+exports.validateRole = validateUserRole;
