@@ -49,6 +49,7 @@ describe("stock movement listing", () => {
       sort: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
+      populate: jest.fn().mockReturnThis(),
       lean: jest.fn().mockResolvedValue(items),
     };
     StockMovement.find.mockReturnValue(query);
@@ -67,6 +68,7 @@ describe("stock movement listing", () => {
     });
     expect(StockMovement.find).toHaveBeenCalledWith({ productId });
     expect(query.skip).toHaveBeenCalledWith(10);
+    expect(query.populate).toHaveBeenCalledWith("performedBy", "username");
   });
 
   test("rejects invalid pagination", async () => {

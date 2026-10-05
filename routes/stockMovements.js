@@ -59,6 +59,7 @@ router.get("/", auth, async (req, res) => {
       .sort({ createdAt: -1, _id: -1 })
       .skip((page - 1) * pageSize)
       .limit(pageSize)
+      .populate("performedBy", "username")
       .lean(),
     StockMovement.countDocuments(filter),
   ]);
