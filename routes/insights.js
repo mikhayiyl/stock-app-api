@@ -25,7 +25,9 @@ router.get("/", auth, async (req, res) => {
     Order.find({}),
     Receipt.find({}),
   ]);
+
   const data = buildInventoryInsightData(products, orders, receipts);
+
   const fingerprint = createHash("sha256")
     .update(JSON.stringify(data))
     .digest("hex");
@@ -35,14 +37,22 @@ router.get("/", auth, async (req, res) => {
     cachedResponse.fingerprint === fingerprint &&
     Date.now() - cachedResponse.createdAt < CACHE_TTL_MS
   ) {
-    return res.send({ ...cachedResponse.response, cached: true });
+    return res.send({
+      ...cachedResponse.response,
+      cached: true,
+    });
   }
 
   let generated;
+
   try {
     generated = await generateInventoryInsights(data);
   } catch (error) {
-    console.error("Gemini inventory insight generation failed:", error);
+    console.error(
+      "Gemini inventory insight generation failed:",
+      error instanceof Error ? error.message : "Unknown provider error",
+    );
+
     return res
       .status(502)
       .send(
@@ -57,6 +67,7 @@ router.get("/", auth, async (req, res) => {
     metrics: data.metrics,
     ...generated,
   };
+
   cachedResponse = {
     fingerprint,
     createdAt: Date.now(),
