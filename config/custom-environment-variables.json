@@ -1,4 +1,6 @@
 {
   "db": "MONGO_DB",
-  "jwtPrivateKey": "SECRET_KEY"
+  "jwtPrivateKey": "SECRET_KEY",
+  "geminiApiKey": "GEMINI_API_KEY",
+  "geminiModel": "GEMINI_MODEL"
 }

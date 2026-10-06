@@ -18,6 +18,7 @@ const receipts = require("./routes/receipts");
 const restocks = require("./routes/restocks");
 const stockMovements = require("./routes/stockMovements");
 const users = require("./routes/users");
+const insights = require("./routes/insights");
 const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
@@ -46,6 +47,7 @@ app.use("/api/orders", orders);
 app.use("/api/receipts", receipts);
 app.use("/api/restocks", restocks);
 app.use("/api/stock-movements", stockMovements);
+app.use("/api/insights", insights);
 app.use(errorHandler);
 
 const server = app.listen(port, () =>

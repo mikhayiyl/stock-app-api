@@ -8,6 +8,7 @@ app.use("/orders", require("../../../routes/orders"));
 app.use("/damages", require("../../../routes/damages"));
 app.use("/restocks", require("../../../routes/restocks"));
 app.use("/stock-movements", require("../../../routes/stockMovements"));
+app.use("/insights", require("../../../routes/insights"));
 
 describe("inventory read access", () => {
   test.each([
@@ -22,6 +23,7 @@ describe("inventory read access", () => {
     "/damages/000000000000000000000000",
     "/restocks/000000000000000000000000",
     "/stock-movements",
+    "/insights",
   ])("requires authentication for GET %s", async (path) => {
     const response = await request(app).get(path);
 
