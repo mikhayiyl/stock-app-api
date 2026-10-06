@@ -15,7 +15,9 @@ router.get("/", auth, async (req, res) => {
   if (!config.get("geminiApiKey")) {
     return res
       .status(503)
-      .send("AI insights are not configured. Set GEMINI_API_KEY on the API server.");
+      .send(
+        "AI insights are not configured. Set GEMINI_API_KEY on the API server.",
+      );
   }
 
   const [products, orders, receipts] = await Promise.all([
@@ -40,13 +42,12 @@ router.get("/", auth, async (req, res) => {
   try {
     generated = await generateInventoryInsights(data);
   } catch (error) {
-    console.error(
-      "Gemini inventory insight generation failed:",
-      error instanceof Error ? error.message : "Unknown provider error",
-    );
+    console.error("Gemini inventory insight generation failed:", error);
     return res
       .status(502)
-      .send("Unable to generate AI insights. Check the Gemini API configuration and try again.");
+      .send(
+        "Unable to generate AI insights. Check the Gemini API configuration and try again.",
+      );
   }
 
   const response = {
